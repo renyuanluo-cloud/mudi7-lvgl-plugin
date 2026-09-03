@@ -1,0 +1,5 @@
+Package: mudi-plugin-zerotier
+Version: 1.0
+Architecture: aarch64_cortex-a53
+Description: Mudi 7 ZeroTier plugin
+

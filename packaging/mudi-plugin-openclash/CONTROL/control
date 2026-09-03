@@ -1,0 +1,5 @@
+Package: mudi-plugin-openclash
+Version: 1.0
+Architecture: aarch64_cortex-a53
+Description: Mudi 7 OpenClash plugin
+

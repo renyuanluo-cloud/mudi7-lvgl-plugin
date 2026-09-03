@@ -1,0 +1,1 @@
+{"id":"zerotier","name":"ZeroTier","exec":"/usr/lib/mudi/plugins/zerotier","version":"1.0","api":"2","permissions":["network"]}

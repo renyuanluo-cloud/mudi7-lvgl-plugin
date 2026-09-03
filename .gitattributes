@@ -1,0 +1,2 @@
+# 统一 LF 换行符：C 源码 / shell 脚本 / 文档在设备端 (OpenWrt/Linux) 要求 Unix 换行
+* text=auto eol=lf

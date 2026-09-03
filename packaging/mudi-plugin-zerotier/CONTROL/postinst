@@ -1,0 +1,15 @@
+#!/bin/sh
+# 门禁: ①本体已装 ②运行且已配置; 任一不过 → 安装失败
+if [ ! -x /etc/init.d/zerotier ]; then
+    echo "mudi-plugin-zerotier: 未检测到 ZeroTier, 请先安装 zerotier" >&2
+    exit 1
+fi
+if [ ! -f /var/lib/zerotier-one/zerotier-one.port ]; then
+    echo "mudi-plugin-zerotier: ZeroTier 未运行, 请先启动" >&2
+    exit 1
+fi
+if ! ls /var/lib/zerotier-one/networks.d/*.conf >/dev/null 2>&1; then
+    echo "mudi-plugin-zerotier: ZeroTier 未加入任何网络, 请先 join" >&2
+    exit 1
+fi
+exit 0

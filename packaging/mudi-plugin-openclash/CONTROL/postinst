@@ -1,0 +1,17 @@
+#!/bin/sh
+# 门禁: ①本体已装 ②运行且已配置; 任一不过 → 安装失败 (不装, 且不再自动安装本体)
+if [ ! -x /etc/init.d/openclash ]; then
+    echo "mudi-plugin-openclash: 未检测到 OpenClash, 请先安装并启用 luci-app-openclash" >&2
+    exit 1
+fi
+en=$(uci -q get openclash.config.enable 2>/dev/null)
+if [ "$en" != "1" ]; then
+    echo "mudi-plugin-openclash: OpenClash 未启用, 请在后台启用后再安装" >&2
+    exit 1
+fi
+port=$(uci -q get openclash.config.cn_port 2>/dev/null); [ -n "$port" ] || port=9090
+if ! curl -s -m 3 "http://127.0.0.1:${port}/version" 2>/dev/null | grep -q version; then
+    echo "mudi-plugin-openclash: OpenClash 内核未运行, 无法安装" >&2
+    exit 1
+fi
+exit 0

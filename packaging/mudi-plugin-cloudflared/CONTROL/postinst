@@ -1,0 +1,17 @@
+#!/bin/sh
+# 门禁: ①本体已装 ②运行且已配置; 任一不过 → 安装失败
+if [ ! -f /etc/config/cloudflared ] || [ ! -x /etc/init.d/cloudflared ]; then
+    echo "mudi-plugin-cloudflared: 未检测到 cloudflared, 请先安装" >&2
+    exit 1
+fi
+en=$(uci -q get cloudflared.config.enabled 2>/dev/null)
+token=$(uci -q get cloudflared.config.token 2>/dev/null)
+if [ "$en" != "1" ]; then
+    echo "mudi-plugin-cloudflared: cloudflared 未启用, 请先在后台启用" >&2
+    exit 1
+fi
+if [ -z "$token" ]; then
+    echo "mudi-plugin-cloudflared: cloudflared 未配置 token, 请先完成登录" >&2
+    exit 1
+fi
+exit 0

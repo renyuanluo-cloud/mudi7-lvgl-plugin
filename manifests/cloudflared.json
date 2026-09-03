@@ -1,0 +1,1 @@
+{"id":"cloudflared","name":"Cloudflare Tunnel","exec":"/usr/lib/mudi/plugins/cloudflared","version":"1.0","api":"2","permissions":["network"]}

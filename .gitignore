@@ -1,0 +1,17 @@
+# 编译产物
+*.o
+*.d
+mudi-core
+openclash
+zerotier
+cloudflared
+inject
+dbus_batt
+
+# 打包产物
+dist/
+mudi-dist.tar.gz
+*.ipk
+
+# LVGL 第三方源码（clone 到 lvgl/ 提供，不纳入仓库）
+lvgl/

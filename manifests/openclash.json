@@ -1,0 +1,1 @@
+{"id":"openclash","name":"OpenClash","exec":"/usr/lib/mudi/plugins/openclash","version":"1.0.0","api":2,"permissions":["network","uci","service"]}
