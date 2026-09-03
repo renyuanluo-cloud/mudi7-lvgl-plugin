@@ -391,17 +391,22 @@ static void sb_tick(void){
     lv_obj_set_style_text_color(SB.mval, clr_pct(ram), 0);
 }
 
-static void sb_row1(lv_obj_t *pg){
+/* 顶栏全局唯一常驻: 挂在 lv_layer_top(), session 内只创建一次。
+   页面导航(nav_push/nav_pop)只 hide/show 页面层, 顶栏不属于任何页面,
+   因此 SB 指针永远指向这份常驻对象, 从结构上杜绝"顶栏 label 随页面
+   被隐藏 → sb_tick 更新到隐藏页 → 用户看到 C/M 停更"的状态不同步 bug。 */
+static void sb_init(void){
+    lv_obj_t *top = lv_layer_top();
     /* 状态行中线 y=10, F10 修正后盒高 13 → y=3 */
-    SB.net  = mk_label(pg, "↑0 ↓0", 6, 3, F10, TH.sec);
-    SB.clab = mk_label(pg, "C", 122, 3, F10, TH.dim);
-    SB.cval = mk_label(pg, "--", 131, 3, F10, TH.sec);
-    SB.mlab = mk_label(pg, "M", 170, 3, F10, TH.dim);
-    SB.mval = mk_label(pg, "--", 179, 3, F10, TH.sec);
+    SB.net  = mk_label(top, "↑0 ↓0", 6, 3, F10, TH.sec);
+    SB.clab = mk_label(top, "C", 122, 3, F10, TH.dim);
+    SB.cval = mk_label(top, "--", 131, 3, F10, TH.sec);
+    SB.mlab = mk_label(top, "M", 170, 3, F10, TH.dim);
+    SB.mval = mk_label(top, "--", 179, 3, F10, TH.sec);
     /* 电池显示已移除: 原生电量 (quec_battery OCV 修正) 与 sysfs 读数差异随电量
        变化, 无法简单对齐; 顶栏只保留 网速/C/M 状态行 */
-    mk_div(pg, 0, 20, 240);
-    SB.owner = pg;
+    mk_div(top, 0, 20, 240);
+    SB.owner = top;
 }
 
 static void exit_cb(lv_event_t *e){ (void)e; if(!busy) g_defer_quit = 1; }
@@ -615,7 +620,6 @@ static void open_list(plugin_t *p, int li){
     if(!pg){
         pg = new_page();
         L->page = pg;
-        sb_row1(pg);
         sb_row2_sub(pg, L->title, L->btn[0] ? L->btn : NULL, list_btn_cb, p, L->id, L->btn2[0] ? L->btn2 : NULL, list_btn2_cb);
         list_cont = lv_obj_create(pg);
         lv_obj_remove_style_all(list_cont);
@@ -651,7 +655,6 @@ static void card_event_cb(lv_event_t *e){
         lv_obj_clear_flag(pg, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clean(pg);
     }
-    sb_row1(pg);
     sb_row2_sub(pg, p->m.name, NULL, NULL, NULL, NULL, NULL, NULL);
     /* 模板: 开关区 / 信息区 / 菜单区 */
     lv_obj_t *content = lv_obj_create(pg);
@@ -704,7 +707,6 @@ static void card_badge(plugin_t *p){
 static void build_home(void){
     lv_obj_t *pg = new_page();
     nav_push(pg, PG_HOME, 0, 0);
-    sb_row1(pg);
     sb_row2_home(pg);
     int shown = 0;
     /* 卡片区可滚动, 适配 3+ 插件 */
@@ -765,7 +767,6 @@ static void theme_row_cb(lv_event_t *e);
 static void build_settings(void){
     lv_obj_t *pg = new_page();
     nav_push(pg, PG_SETTINGS, 0, 0);
-    sb_row1(pg);
     sb_row2_sub(pg, "设置", NULL, NULL, NULL, NULL, NULL, NULL);
     mk_label(pg, "插件显示", 12, 70, F10, TH.dim);
     int y = 88;
@@ -808,7 +809,6 @@ static void core_pick(const char *title, const char **names, int n, int sel, cor
     pick_fn = cb;
     lv_obj_t *pg = new_page();
     nav_push(pg, PG_PICK, 0, 0);
-    sb_row1(pg);
     sb_row2_sub(pg, title, NULL, NULL, NULL, NULL, NULL, NULL);
     for(int i = 0; i < n; i++){
         lv_obj_t *r = mk_obj(pg, 0, 64 + i*44, 240, 44, &s_row);
@@ -825,11 +825,11 @@ static void theme_apply(int i){
     if(i == th_light) return;
     th_light = i;
     conf_save_all();
-    while(nav_sp) nav_pop();
-    theme_load();
-    styles_init();
-    build_home();
-    build_settings();
+    /* 主题切换通过重启会话生效: 旧实现 while(nav_sp) nav_pop() 在 nav_sp<=1 时
+       nav_pop 直接 return 是死循环(靠 watchdog 15s 强退), 且重建会残留旧页面。
+       改为 g_quit 让 main.c 父进程 fork 全新 session, 零残留、无死循环,
+       conf_load_theme 会读到新 th_light。 */
+    g_quit = 1;
 }
 static void theme_row_cb(lv_event_t *e){
     (void)e;
@@ -965,6 +965,9 @@ static void proto_line(plugin_t *p, char *ln){
                 }
             }
         } else {
+            /* 防御: detail 关闭后(detail_open=0)丢弃残留 SET, 与 OBJ 分支一致,
+               避免 detail_find 命中已失效 objs(val/sw 指向已销毁 widget) */
+            if(!p->detail_open) return;
             pobj_t *o = detail_find(p, id);
             if(o){
                 if(o->type == 's' && checked >= 0){
@@ -998,6 +1001,7 @@ void ui_run(void){
     fprintf(stderr,"mudi-core: session start, plugins=%d\n", N_PL);
     fflush(stderr);
 
+    sb_init();
     build_home();
 
     /* session 开始立即开背光 */
