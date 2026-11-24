@@ -7,7 +7,6 @@
 #include "sys.h"
 #include "mudi_tick.h"
 #include "lvgl/src/extra/libs/freetype/lv_freetype.h"
-#include "lvgl/src/extra/widgets/spinner/lv_spinner.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -316,6 +315,13 @@ static void nav_close_top(void){
         list_cont = NULL;
     }
 }
+/* 必须在 lv_obj_del 之后调用: widget 的 user_data 指向 pobj_t, 销毁过程中仍会访问 */
+static void nav_free_top_objs(void){
+    int t = NAV[nav_sp-1].type, a = NAV[nav_sp-1].a;
+    if(t == PG_DETAIL){
+        while(PL[a].objs){ pobj_t *n = PL[a].objs->next; free(PL[a].objs); PL[a].objs = n; }
+    }
+}
 static void nav_pop(void){
     if(nav_sp <= 1) return;
     nav_close_top();  /* PG_LIST: 只设 open=0, 不做 lv_obj_clean(隐藏页上 clean 会崩) */
@@ -331,6 +337,9 @@ static void nav_push(lv_obj_t *page, int type, int a, int b){
 }
 static lv_obj_t *new_page(void){
     return mk_obj(lv_scr_act(), 0, 0, 240, 320, &s_scr);
+}
+static void nav_back_or_quit(void){
+    if(nav_sp > 1) nav_pop(); else g_quit = 1;
 }
 
 /* ================= BUSY 遮罩 (异步操作阻塞态, Core 级) ================= */
